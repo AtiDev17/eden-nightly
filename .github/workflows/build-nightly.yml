@@ -260,6 +260,7 @@ jobs:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
       CCACHE_COMPILERCHECK: content
       CCACHE_SLOPPINESS: time_macros
+      CXXFLAGS: "-DNOMINMAX"
     steps:
       - uses: actions/checkout@v5.0.0
 
