@@ -6,11 +6,16 @@ concurrency:
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 5 * * *'
 
 jobs:
-  info:
+  check_version:
     runs-on: ubuntu-latest
-    name: "Changelog"
+    name: "Check for new version"
+    outputs:
+      should_build: ${{ steps.compare.outputs.should_build }}
+
     strategy:
       matrix:
         target: [Info]
@@ -20,13 +25,16 @@ jobs:
           persist-credentials: false
 
       - name: Get the latest release count
+        id: get_release
         env:
           GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
         run: |
           api_url="https://api.github.com/repos/${{ github.repository }}"
           latest_release_info=$(curl -H "Authorization: token $GH_TOKEN" "$api_url/releases/latest")
           last_release_tag=$(echo "$latest_release_info" | jq -r '.tag_name')
-          echo "${last_release_tag}"
+          echo "Last release tag: ${last_release_tag}"
+          # Output the last tag for the comparison step
+          echo "last_release_tag=${last_release_tag}" >> $GITHUB_OUTPUT
           old_count="${last_release_tag##*-}"
           echo "OLD_COUNT=$old_count" >> "$GITHUB_ENV"
 
@@ -34,6 +42,22 @@ jobs:
         run: |
           chmod +x ./changelog.sh
           ./changelog.sh
+
+      - name: Compare tags
+        id: compare
+        run: |
+          NEW_TAG=$(cat ~/tag)
+          LAST_TAG="${{ steps.get_release.outputs.last_release_tag }}"
+          echo "Last release tag: $LAST_TAG"
+          echo "New generated tag: $NEW_TAG"
+          
+          if [[ "$NEW_TAG" == "$LAST_TAG" ]]; then
+            echo "No new version. Halting build."
+            echo "should_build=false" >> $GITHUB_OUTPUT
+          else
+            echo "New version ($NEW_TAG) found. Proceeding with build."
+            echo "should_build=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: Upload tag file
         uses: actions/upload-artifact@v5.0.0
@@ -60,6 +84,8 @@ jobs:
           path: artifacts
 
   windows:
+    needs: check_version
+    if: needs.check_version.outputs.should_build == 'true'
     runs-on: ${{ matrix.runs-on }}
     name: "Windows ${{ matrix.toolchain }} ${{ matrix.optimize }} (${{ matrix.arch }})"
     strategy:
@@ -78,14 +104,6 @@ jobs:
               optimize: normal
               arch: x86_64
               runs-on: windows-2022
-#            - toolchain: clang
-#              optimize: PGO
-#              arch: x86_64
-#              runs-on: windows-2022
-#            - toolchain: msys2
-#              optimize: PGO
-#              arch: x86_64
-#              runs-on: windows-2022
             - toolchain: msys2
               optimize: normal
               arch: x86_64
@@ -197,9 +215,9 @@ jobs:
           path: installer/artifacts/
 
   release:
-    if: github.ref_name == 'main'
+    if: github.ref_name == 'main' && needs.check_version.outputs.should_build == 'true'
     name: "release"
-    needs: [info, windows]
+    needs: [check_version, windows]
     permissions:
       actions: read
       security-events: write
