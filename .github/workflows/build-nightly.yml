@@ -188,6 +188,11 @@ jobs:
           chmod +x ./eden-windows.sh
           ./eden-windows.sh
 
+      - name: Install NSIS
+        shell: powershell
+        run: |
+          choco install nsis -y --no-progress
+          
       - name: Generate installer
         shell: cmd
         working-directory: ${{ github.workspace }}/installer
