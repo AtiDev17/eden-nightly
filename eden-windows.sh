@@ -56,29 +56,26 @@ case "${TOOLCHAIN}" in
             EXTRA_CMAKE_FLAGS+=(
                 "-DCMAKE_C_COMPILER=clang-cl"
                 "-DCMAKE_CXX_COMPILER=clang-cl"
-                "-DCMAKE_CXX_FLAGS=-Ofast -DNOMINMAX -fprofile-use=${GITHUB_WORKSPACE}/pgo/eden.profdata -Wno-backend-plugin -Wno-profile-instr-unprofiled -Wno-profile-instr-out-of-date"
-                "-DCMAKE_C_FLAGS=-Ofast -DNOMINMAX -fprofile-use=${GITHUB_WORKSPACE}/pgo/eden.profdata -Wno-backend-plugin -Wno-profile-instr-unprofiled -Wno-profile-instr-out-of-date"
+                "-DCMAKE_CXX_FLAGS=-Ofast -fprofile-use=${GITHUB_WORKSPACE}/pgo/eden.profdata -Wno-backend-plugin -Wno-profile-instr-unprofiled -Wno-profile-instr-out-of-date"
+                "-DCMAKE_C_FLAGS=-Ofas -fprofile-use=${GITHUB_WORKSPACE}/pgo/eden.profdata -Wno-backend-plugin -Wno-profile-instr-unprofiled -Wno-profile-instr-out-of-date"
             )
         else
             EXTRA_CMAKE_FLAGS+=(
                 "-DCMAKE_C_COMPILER=clang-cl"
                 "-DCMAKE_CXX_COMPILER=clang-cl"
-                "-DCMAKE_CXX_FLAGS=-Ofast -DNOMINMAX"
-                "-DCMAKE_C_FLAGS=-Ofast -DNOMINMAX"
+                "-DCMAKE_CXX_FLAGS=-Ofast"
+                "-DCMAKE_C_FLAGS=-Ofast"
                 "-DCMAKE_C_COMPILER_LAUNCHER=ccache"
                 "-DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
             )
         fi
     ;;
     msys2)
-        # patch to use more cpm libs
-        echo "-- Applying cpm patch..."
-        patch -p1 < ../patches/mingw.patch
-        echo "   Done."
         
         if [[ "${OPTIMIZE}" == "PGO" ]]; then
             EXTRA_CMAKE_FLAGS+=(
-                "-DYUZU_USE_EXTERNAL_SDL2=ON"
+                "-DYUZU_STATIC_BUILD=ON"
+                "-DQt6_DIR=D:/a/_temp/msys64/MINGW64/qt6-static/lib/cmake/Qt6"
                 "-DCMAKE_C_COMPILER=clang"
                 "-DCMAKE_CXX_COMPILER=clang++"
                 "-DCMAKE_CXX_FLAGS=-fuse-ld=lld -fprofile-use=${GITHUB_WORKSPACE}/pgo/eden.profdata -fprofile-correction -w"
@@ -86,7 +83,8 @@ case "${TOOLCHAIN}" in
             )
         else
             EXTRA_CMAKE_FLAGS+=(
-                "-DYUZU_USE_EXTERNAL_SDL2=ON"
+                "-DYUZU_STATIC_BUILD=ON"
+                "-DQt6_DIR=D:/a/_temp/msys64/MINGW64/qt6-static/lib/cmake/Qt6"
                 "-DYUZU_ENABLE_LTO=ON"
                 "-DDYNARMIC_ENABLE_LTO=ON"
                 "-DCMAKE_CXX_FLAGS=-flto=auto -w"
@@ -129,35 +127,9 @@ if [[ "${OPTIMIZE}" == "normal" ]]; then
 fi
 
 # Gather dependencies
-echo "-- Gathering dependencies..."
-windeployqt6 --release --no-compiler-runtime --no-opengl-sw --no-system-dxc-compiler --no-system-d3d-compiler --dir bin ./bin/eden.exe
-
-# Recursively copy dependencies for MSYS2 builds
-if [[ "${TOOLCHAIN}" == "msys2" ]]; then
-    echo "-- Copying MSYS2 dependencies..."
-    export PATH="/mingw64/bin:${PATH}"
-    copy_deps() {
-        local target="$1"
-        objdump -p "$target" | awk '/DLL Name:/ {print $3}' | while read -r dll; do
-            [[ -z "$dll" ]] && continue
-            local dll_path
-            dll_path=$(command -v "$dll" 2>/dev/null || true)
-            [[ -z "$dll_path" ]] && continue
-
-            case "$dll_path" in
-                /c/Windows/System32/*|/c/Windows/SysWOW64/*) continue ;;
-            esac
-
-            local dest="./bin/$dll"
-            if [[ ! -f "$dest" ]]; then
-                cp -v "$dll_path" ./bin/
-                copy_deps "$dll_path"
-            fi
-        done
-    }
-    copy_deps ./bin/eden.exe
-    # grab deps for Qt plugins
-    find ./bin/ -name "*.dll" | while read -r dll; do copy_deps "$dll"; done
+if [[ "${TOOLCHAIN}" != "msys2" ]]; then
+    echo "-- Gathering QT dependencies..."
+    windeployqt6 --release --no-compiler-runtime --no-opengl-sw --no-system-dxc-compiler --no-system-d3d-compiler --dir bin ./bin/eden.exe
 fi
 
 # Delete un-needed debug files
