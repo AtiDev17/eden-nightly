@@ -476,7 +476,7 @@ FunctionEnd
 Function un.CustomFinishPageLeave
   ${NSD_GetState} $OpenLatestCheckbox $OpenLatest
   ${If} $OpenLatest == 1
-    ExecShell "open" "https://github.com/pflyly/eden-nightly/releases/latest"
+    ExecShell "open" "https://github.com/Ati1707/eden-nightly/releases/latest"
   ${EndIf}
 FunctionEnd
 
