@@ -4,9 +4,9 @@
   <br>
 </h1>
 
-[![GitHub Release](https://img.shields.io/github/v/release/pflyly/eden-nightly?label=Current%20Release)](https://github.com/pflyly/eden-nightly/releases/latest)
-[![GitHub Downloads](https://img.shields.io/github/downloads/pflyly/eden-nightly/total?logo=github&label=GitHub%20Downloads)](https://github.com/pflyly/eden-nightly/releases/latest)
-[![CI Build Status](https://github.com//pflyly/eden-nightly/actions/workflows/build-nightly.yml/badge.svg)](https://github.com/pflyly/eden-nightly/releases/latest)
+[![GitHub Release](https://img.shields.io/github/v/release/Ati1707/eden-nightly?label=Current%20Release)](https://github.com/Ati1707/eden-nightly/releases/latest)
+[![GitHub Downloads](https://img.shields.io/github/downloads/Ati1707/eden-nightly/total?logo=github&label=GitHub%20Downloads)](https://github.com/Ati1707/eden-nightly/releases/latest)
+[![CI Build Status](https://github.com//Ati1707/eden-nightly/actions/workflows/build-nightly.yml/badge.svg)](https://github.com/Ati1707/eden-nightly/releases/latest)
 
 ## Release Overview
 
