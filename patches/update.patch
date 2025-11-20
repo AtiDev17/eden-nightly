@@ -57,7 +57,7 @@ index 1ae608c085..f45c556d77 100644
  set(BUILD_AUTO_UPDATE_WEBSITE "https://github.com")
  set(BUILD_AUTO_UPDATE_API "http://api.github.com")
 -set(BUILD_AUTO_UPDATE_REPO "eden-emulator/Releases")
-+set(BUILD_AUTO_UPDATE_REPO "pflyly/eden-nightly")
++set(BUILD_AUTO_UPDATE_REPO "Ati1707/eden-nightly")
  
  configure_file(scm_rev.cpp.in scm_rev.cpp @ONLY)
 diff --git a/src/yuzu/about_dialog.cpp b/src/yuzu/about_dialog.cpp
