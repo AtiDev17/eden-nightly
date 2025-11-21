@@ -121,7 +121,7 @@ jobs:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
       CCACHE_COMPILERCHECK: content
       CCACHE_SLOPPINESS: time_macros
-      CXXFLAGS: "-DNOMINMAX"
+      CMAKE_GENERATOR: "Ninja"
     steps:
       - uses: actions/checkout@v5.0.1
 
@@ -130,6 +130,14 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: ${{ matrix.arch }}
+
+      - name: Cache Vulkan SDK
+        if: ${{ matrix.toolchain != 'msys2' }}
+        id: cache-vulkan
+        uses: actions/cache@v4
+        with:
+          path: C:\VulkanSDK
+          key: vulkan-sdk-1.3.268.0
 
       - name: Set up MSYS2
         if: ${{ matrix.toolchain == 'msys2' }}
@@ -150,16 +158,16 @@ jobs:
           cache: 'true'
 
       - name: Install vulkan-sdk
-        if: ${{ matrix.toolchain != 'msys2' }}
+        if: ${{ matrix.toolchain != 'msys2' && steps.cache-vulkan.outputs.cache-hit != 'true' }}
         shell: powershell
         run: |
           ./install-vulkan-sdk.ps1
-          
-      - name: Install ccache
-        if: ${{ matrix.toolchain != 'msys2' && matrix.optimize == 'normal' }}
+
+      - name: Install Build Tools
+        if: ${{ matrix.toolchain != 'msys2' }}
         shell: bash
         run: |
-          choco install ccache -y --no-progress
+          choco install ccache ninja -y --no-progress
           
       - name: Install LLVM
         if: ${{ matrix.toolchain != 'msys2' && matrix.toolchain == 'clang' }}
