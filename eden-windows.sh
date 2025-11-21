@@ -65,8 +65,9 @@ case "${TOOLCHAIN}" in
                 "-DCMAKE_CXX_COMPILER=clang-cl"
                 "-DCMAKE_CXX_FLAGS=-Ofast"
                 "-DCMAKE_C_FLAGS=-Ofast"
-                "-DCMAKE_C_COMPILER_LAUNCHER=${CMAKE_C_COMPILER_LAUNCHER:-sccache}"
-                "-DCMAKE_CXX_COMPILER_LAUNCHER=${CMAKE_CXX_COMPILER_LAUNCHER:-sccache}"
+                # Use the sccache provided by the action
+                "-DCMAKE_C_COMPILER_LAUNCHER=sccache"
+                "-DCMAKE_CXX_COMPILER_LAUNCHER=sccache"
             )
         fi
     ;;
@@ -88,8 +89,8 @@ case "${TOOLCHAIN}" in
                 "-DDYNARMIC_ENABLE_LTO=ON"
                 "-DCMAKE_CXX_FLAGS=-flto=auto -w"
                 "-DCMAKE_C_FLAGS=-flto=auto -w"
-                "-DCMAKE_C_COMPILER_LAUNCHER=${CMAKE_C_COMPILER_LAUNCHER:-ccache}"
-                "-DCMAKE_CXX_COMPILER_LAUNCHER=${CMAKE_CXX_COMPILER_LAUNCHER:-ccache}"
+                "-DCMAKE_C_COMPILER_LAUNCHER=ccache"
+                "-DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
             )
         fi
     ;;
@@ -97,8 +98,9 @@ case "${TOOLCHAIN}" in
         EXTRA_CMAKE_FLAGS+=(
         "-DYUZU_ENABLE_LTO=ON"
         "-DDYNARMIC_ENABLE_LTO=ON"
-        "-DCMAKE_C_COMPILER_LAUNCHER=${CMAKE_C_COMPILER_LAUNCHER:-sccache}"
-        "-DCMAKE_CXX_COMPILER_LAUNCHER=${CMAKE_CXX_COMPILER_LAUNCHER:-sccache}"
+        # Use the sccache provided by the action
+        "-DCMAKE_C_COMPILER_LAUNCHER=sccache"
+        "-DCMAKE_CXX_COMPILER_LAUNCHER=sccache"
         )
     ;;
 esac
@@ -120,11 +122,6 @@ cmake .. -G "Ninja" "${BASE_CMAKE_FLAGS[@]}" "${EXTRA_CMAKE_FLAGS[@]}"
 
 ninja
 echo "-- Build Completed."
-
-echo "-- Sccache stats:"
-if [[ "${OPTIMIZE}" == "normal" ]] && command -v sccache >/dev/null 2>&1; then
-    sccache -s
-fi
 
 # Gather dependencies
 if [[ "${TOOLCHAIN}" != "msys2" ]]; then
