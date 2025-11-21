@@ -48,21 +48,6 @@ declare -a BASE_CMAKE_FLAGS=(
     "-DCMAKE_BUILD_TYPE=Release"
 )
 
-if [ -d "C:/VulkanSDK" ]; then
-    VULKAN_VERSION_DIR=$(ls -d C:/VulkanSDK/*/ | head -n 1)
-    if [ -n "$VULKAN_VERSION_DIR" ]; then
-        echo "Found Vulkan SDK at: $VULKAN_VERSION_DIR"
-        export PATH="$VULKAN_VERSION_DIR/Bin:$PATH"
-        export VULKAN_SDK="$VULKAN_VERSION_DIR"
-    else
-        echo "WARNING: Vulkan SDK root found but no version directory detected."
-    fi
-else 
-    if [ -n "$VULKAN_SDK" ]; then
-         export PATH="$VULKAN_SDK/Bin:$PATH"
-    fi
-fi
-
 # Set Extra CMake flags
 declare -a EXTRA_CMAKE_FLAGS=()
 case "${TOOLCHAIN}" in
@@ -80,12 +65,13 @@ case "${TOOLCHAIN}" in
                 "-DCMAKE_CXX_COMPILER=clang-cl"
                 "-DCMAKE_CXX_FLAGS=-Ofast"
                 "-DCMAKE_C_FLAGS=-Ofast"
-                "-DCMAKE_C_COMPILER_LAUNCHER=sccache"
-                "-DCMAKE_CXX_COMPILER_LAUNCHER=sccache"
+                "-DCMAKE_C_COMPILER_LAUNCHER=ccache"
+                "-DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
             )
         fi
     ;;
     msys2)
+        
         if [[ "${OPTIMIZE}" == "PGO" ]]; then
             EXTRA_CMAKE_FLAGS+=(
                 "-DYUZU_STATIC_BUILD=ON"
@@ -112,8 +98,8 @@ case "${TOOLCHAIN}" in
         EXTRA_CMAKE_FLAGS+=(
         "-DYUZU_ENABLE_LTO=ON"
         "-DDYNARMIC_ENABLE_LTO=ON"
-        "-DCMAKE_C_COMPILER_LAUNCHER=sccache"
-        "-DCMAKE_CXX_COMPILER_LAUNCHER=sccache"
+        "-DCMAKE_C_COMPILER_LAUNCHER=ccache"
+        "-DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
         )
     ;;
 esac
@@ -131,10 +117,14 @@ done
 echo "-- Starting build..."
 mkdir -p build
 cd build
-cmake .. -G "Ninja" "${BASE_CMAKE_FLAGS[@]}" "${EXTRA_CMAKE_FLAGS[@]}"
-
+cmake .. -G Ninja "${BASE_CMAKE_FLAGS[@]}" "${EXTRA_CMAKE_FLAGS[@]}"
 ninja
 echo "-- Build Completed."
+
+echo "-- Ccache stats:"
+if [[ "${OPTIMIZE}" == "normal" ]]; then
+    ccache -s -v
+fi
 
 # Gather dependencies
 if [[ "${TOOLCHAIN}" != "msys2" ]]; then
