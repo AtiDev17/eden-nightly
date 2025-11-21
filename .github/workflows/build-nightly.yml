@@ -102,7 +102,7 @@ jobs:
             - toolchain: msvc
               optimize: normal
               arch: arm64
-              runs-on: windows-11-arm
+              runs-on: windows-11-arm 
             - toolchain: clang
               optimize: normal
               arch: x86_64
@@ -118,26 +118,20 @@ jobs:
       TOOLCHAIN: ${{ matrix.toolchain }}
       ARCH: ${{ matrix.arch }}
       OPTIMIZE: ${{ matrix.optimize }}
-      CCACHE_DIR: ${{ github.workspace }}/.ccache
-      CCACHE_COMPILERCHECK: content
-      CCACHE_SLOPPINESS: time_macros
+      SCCACHE_DIR: "D:\\a\\.sccache"
+      SCCACHE_GHA_ENABLED: "true"
+      CMAKE_C_COMPILER_LAUNCHER: "sccache"
+      CMAKE_CXX_COMPILER_LAUNCHER: "sccache"
       CMAKE_GENERATOR: "Ninja"
+      CXXFLAGS: "-DNOMINMAX"
     steps:
-      - uses: actions/checkout@v5.0.1
+      - uses: actions/checkout@v5.0.1 
 
       - name: Set up MSVC
         if: ${{ matrix.toolchain != 'msys2' }}
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: ${{ matrix.arch }}
-
-      - name: Cache Vulkan SDK
-        if: ${{ matrix.toolchain != 'msys2' }}
-        id: cache-vulkan
-        uses: actions/cache@v4
-        with:
-          path: C:\VulkanSDK
-          key: vulkan-sdk-1.3.268.0
 
       - name: Set up MSYS2
         if: ${{ matrix.toolchain == 'msys2' }}
@@ -150,6 +144,7 @@ jobs:
           pacboy: >-
             boost:p ccache:p clang:p cmake:p enet:p glslang:p libusb:p lld:p llvm:p lz4:p mbedtls:p ninja:p nlohmann-json:p opus:p qt6-tools:p qt6-translations:p qt6-svg:p qt6-static:p rapidjson:p toolchain:p python-pip:p zlib:p zstd:p
             jbigkit:p xz:p libdeflate:p bzip2:p lerc:p graphite2:p crt-git:p libwebp:p libtiff:p brotli:p
+      
       - name: Install Qt
         if: ${{ matrix.toolchain != 'msys2' }}
         uses: jurplel/install-qt-action@v4.3.0
@@ -157,17 +152,25 @@ jobs:
           version: '6.9.3'
           cache: 'true'
 
+      - name: Cache Vulkan SDK
+        if: ${{ matrix.toolchain != 'msys2' }}
+        id: cache-vulkan
+        uses: actions/cache@v4
+        with:
+          path: C:\VulkanSDK
+          key: vulkan-sdk-1.4.328.1
+
       - name: Install vulkan-sdk
         if: ${{ matrix.toolchain != 'msys2' && steps.cache-vulkan.outputs.cache-hit != 'true' }}
         shell: powershell
         run: |
           ./install-vulkan-sdk.ps1
-
-      - name: Install Build Tools
+          
+      - name: Install Build Tools (Ninja & sccache)
         if: ${{ matrix.toolchain != 'msys2' }}
         shell: bash
         run: |
-          choco install ccache ninja -y --no-progress
+          choco install ninja sccache -y --no-progress
           
       - name: Install LLVM
         if: ${{ matrix.toolchain != 'msys2' && matrix.toolchain == 'clang' }}
@@ -181,20 +184,25 @@ jobs:
           cd ./eden
           echo "VERSION=$(git rev-list --count HEAD)" >> "${GITHUB_ENV}"
 
-      - name: Restore ccache
+      - name: Restore sccache
         if: ${{ matrix.optimize == 'normal' }}
         uses: actions/cache/restore@v4
-        id: restore-ccache-windows
+        id: restore-sccache
         with:
-          path: ${{ env.CCACHE_DIR }}
-          key: ${{ runner.os }}-ccache-${{ matrix.toolchain }}-${{ matrix.arch }}-${{ github.run_id }}
+          path: ${{ env.SCCACHE_DIR }}
+          key: ${{ runner.os }}-sccache-${{ matrix.toolchain }}-${{ matrix.arch }}-${{ github.run_id }}
           restore-keys: |
-            ${{ runner.os }}-ccache-${{ matrix.toolchain }}-${{ matrix.arch }}-
+            ${{ runner.os }}-sccache-${{ matrix.toolchain }}-${{ matrix.arch }}-
 
       - name: Compile Eden Windows
         run: |
           chmod +x ./eden-windows.sh
           ./eden-windows.sh
+
+      - name: sccache stats
+        if: ${{ matrix.toolchain != 'msys2' && matrix.optimize == 'normal' }}
+        shell: bash
+        run: sccache --show-stats
 
       - name: Install NSIS
         uses: repolevedavaj/install-nsis@v1.1.0
@@ -211,15 +219,15 @@ jobs:
           mkdir artifacts 2>nul
           move /y *.exe artifacts\
 
-      - name: Save ccache
+      - name: Save sccache
         if: ${{ matrix.optimize == 'normal' && github.ref_name == 'main' }}
         uses: actions/cache/save@v4
         with:
-          path: ${{ env.CCACHE_DIR }}
-          key: ${{ steps.restore-ccache-windows.outputs.cache-primary-key }}
+          path: ${{ env.SCCACHE_DIR }}
+          key: ${{ steps.restore-sccache.outputs.cache-primary-key }}
 
       - name: Upload Eden 7z
-        uses: actions/upload-artifact@v5.0.0
+        uses: actions/upload-artifact@v5.0.0 
         with:
           name: eden-windows-${{ matrix.toolchain }}-${{ matrix.optimize }}-${{ matrix.arch }}-7z
           path: eden/build/artifacts/
