@@ -98,6 +98,7 @@ jobs:
             - toolchain: msvc
               optimize: normal
               arch: x86_64
+              runs-on: windows-latest
             - toolchain: clang
               optimize: normal
               arch: x86_64
