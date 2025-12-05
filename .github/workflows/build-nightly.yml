@@ -147,6 +147,14 @@ jobs:
         shell: powershell
         run: |
           ./install-llvm.ps1
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: '6.7.2'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2019_64'
           
       - name: Clone Eden
         run: |
