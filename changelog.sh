@@ -5,9 +5,121 @@ set -e
 echo "-- Generating changelog for release..."
 
 echo "-- Cloning Eden repository..."
+# Clean up any existing folder to prevent conflicts
+rm -rf ./eden
 git clone 'https://git.eden-emu.dev/eden-emu/eden.git' ./eden
 cd ./eden
 echo "   Done."
+
+BASE_DOWNLOAD_URL="https://github.com/Ati1707/eden-nightly/releases/download"
+CHANGELOG_FILE=~/changelog
+SOURCE_NAME_BASE="Eden-Source-Code"
+
+# ==========================================
+# MODE 1: CUSTOM PR BUILD (Single or Multiple)
+# ==========================================
+if [ -n "$PR_ID" ]; then
+  echo "--- DETECTED PR BUILD: $PR_ID ---"
+  
+  # Configure git to allow merging
+  git config user.email "bot@github-actions"
+  git config user.name "GitHub Actions"
+
+  # Clean input: remove spaces (e.g. "42, 45" -> "42,45")
+  CLEAN_IDS=$(echo "$PR_ID" | tr -d ' ')
+  
+  # Initialize Changelog Header
+  echo "> [!CAUTION]" > "$CHANGELOG_FILE"
+  echo "> **This is a TEST BUILD merging the following Pull Requests:**" >> "$CHANGELOG_FILE"
+  
+  # Split IDs by comma into an array
+  IFS=',' read -ra PR_ARRAY <<< "$CLEAN_IDS"
+  
+  # Determine Tag Prefix
+  if [ "${#PR_ARRAY[@]}" -eq 1 ]; then
+     TAG_PREFIX="PR-${PR_ARRAY[0]}"
+  else
+     TAG_PREFIX="PR-Multi"
+  fi
+
+  # --- LOOP: Fetch and Merge all requested PRs ---
+  for id in "${PR_ARRAY[@]}"; do
+      echo "   Processing PR #$id..."
+      
+      # Fetch the specific PR head to a temporary branch 'pr-{id}'
+      git fetch origin "refs/pull/$id/head:pr-$id"
+      
+      # Merge into current branch
+      git merge "pr-$id" --no-edit
+      
+      # Add summary line to changelog
+      PR_TITLE=$(git log -1 --pretty=format:"%s")
+      echo "> * **PR #$id**: $PR_TITLE" >> "$CHANGELOG_FILE"
+  done
+  
+  echo ">" >> "$CHANGELOG_FILE"
+  echo "> It may be unstable. Do not report bugs unless you are the PR author." >> "$CHANGELOG_FILE"
+  echo "" >> "$CHANGELOG_FILE"
+
+  # Generate Release Info
+  COUNT="$(git rev-list --count HEAD)"
+  DATE="$(date +"%Y-%m-%d")"
+  TAG="${TAG_PREFIX}-${DATE}-${COUNT}"
+  SOURCE_NAME="${SOURCE_NAME_BASE}-${COUNT}"
+
+  # Save Tag and Count for the workflow to use
+  echo "$TAG" > ~/tag
+  echo "$COUNT" > ~/count
+  echo "   Release tag: $TAG"
+  echo "   Commit count: $COUNT"
+
+  # Append Technical Commit Details to Changelog
+  echo "## Merged Commit Details" >> "$CHANGELOG_FILE"
+  for id in "${PR_ARRAY[@]}"; do
+      echo "### PR #$id Details" >> "$CHANGELOG_FILE"
+      git log -1 --pretty=format:"%B" "pr-$id" >> "$CHANGELOG_FILE"
+      echo -e "\n" >> "$CHANGELOG_FILE"
+  done
+
+  # Generate Download Table (Using the new TAG)
+  echo "## Test Release Downloads:" >> "$CHANGELOG_FILE"
+  echo "| Platform | Normal builds | PGO optimized builds |" >> "$CHANGELOG_FILE"
+  echo "|--|--|--|" >> "$CHANGELOG_FILE"
+  echo "| Windows (MSVC) | **7z**<br>────────────────<br>\
+[\`x86_64\`](${BASE_DOWNLOAD_URL}/${TAG}/Eden-${COUNT}-Windows-msvc-x86_64.7z)<br><br>\
+**Installer**<br>────────────────<br>\
+[\`x86_64\`](${BASE_DOWNLOAD_URL}/${TAG}/Eden-${COUNT}-Windows-msvc-x86_64-Installer.exe) |" >> "$CHANGELOG_FILE"
+  echo "| Windows (CLANG) | **7z**<br>────────────────<br>\
+[\`x86_64\`](${BASE_DOWNLOAD_URL}/${TAG}/Eden-${COUNT}-Windows-clang-x86_64.7z)<br><br>\
+**Installer**<br>────────────────<br>\
+[\`x86_64\`](${BASE_DOWNLOAD_URL}/${TAG}/Eden-${COUNT}-Windows-clang-x86_64-Installer.exe) |" >> "$CHANGELOG_FILE"
+  
+  echo "-- PR Changelog generated."
+  cat "$CHANGELOG_FILE"
+  
+  # === PACK SOURCE CODE FOR PR BUILD ===
+  echo "-- Fetching source code for release..."
+  git fetch --all
+  chmod a+x tools/cpm-fetch-all.sh
+  tools/cpm-fetch-all.sh
+
+  cd ..
+  mkdir -p artifacts
+  mkdir "$SOURCE_NAME"
+  cp -a eden "$SOURCE_NAME"
+  echo "-- Creating 7z archive: $SOURCE_NAME.7z"
+  7z a -t7z -mx=9 "$SOURCE_NAME.7z" "$SOURCE_NAME"
+  mv -v "$SOURCE_NAME.7z" artifacts/
+  
+  echo "=== PR BUILD PREP DONE! ==="
+  
+  exit 0
+fi
+
+# ==========================================
+# MODE 2: STANDARD NIGHTLY BUILD
+# ==========================================
+
 # Get current commit info
 echo "-- Setup release information..."
 COUNT="$(git rev-list --count HEAD)"
@@ -19,11 +131,8 @@ echo "$COUNT" > ~/count
 echo "   Release tag: $TAG"
 echo "   Commit count: $COUNT"
 
-# Start to generate release info and changelog
-CHANGELOG_FILE=~/changelog
 BASE_COMMIT_URL="https://git.eden-emu.dev/eden-emu/eden/commit"
 BASE_COMPARE_URL="https://git.eden-emu.dev/eden-emu/eden/compare"
-BASE_DOWNLOAD_URL="https://github.com/Ati1707/eden-nightly/releases/download"
 
 # Fallback if OLD_COUNT is empty or null
 echo "-- Checking previous release count..."
@@ -94,9 +203,8 @@ cd ..
 mkdir -p artifacts
 mkdir "$SOURCE_NAME"
 cp -a eden "$SOURCE_NAME"
-echo "-- Creating 7z archive: $ZIP_NAME"
-ZIP_NAME="$SOURCE_NAME.7z"
-7z a -t7z -mx=9 "$ZIP_NAME" "$SOURCE_NAME"
-mv -v "$ZIP_NAME" artifacts/
+echo "-- Creating 7z archive: $SOURCE_NAME.7z"
+7z a -t7z -mx=9 "$SOURCE_NAME.7z" "$SOURCE_NAME"
+mv -v "$SOURCE_NAME.7z" artifacts/
 
 echo "=== ALL DONE! ==="
